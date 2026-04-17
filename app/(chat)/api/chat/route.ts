@@ -7,6 +7,7 @@ import {
   stepCountIs,
   streamText,
 } from 'ai';
+
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
@@ -17,24 +18,29 @@ import {
   getMessagesByChatId,
   saveChat,
   saveMessages,
+  updateChatLastContextById,
 } from '@/lib/db/queries';
-import { updateChatLastContextById } from '@/lib/db/queries';
+
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
+
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
+
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
+
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
+
 import {
   createResumableStreamContext,
   type ResumableStreamContext,
 } from 'resumable-stream';
-import { after } from 'next/server';
+
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
@@ -48,12 +54,15 @@ export function getStreamContext() {
   if (!globalStreamContext) {
     try {
       globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
+        waitUntil: (fn: any) => {
+          // ✅ Next.js 14 safe replacement for `after`
+          Promise.resolve().then(fn);
+        },
       });
     } catch (error: any) {
-      if (error.message.includes('REDIS_URL')) {
+      if (error?.message?.includes('REDIS_URL')) {
         console.log(
-          ' > Resumable streams are disabled due to missing REDIS_URL',
+          ' > Resumable streams are disabled due to missing REDIS_URL'
         );
       } else {
         console.error(error);
@@ -70,7 +79,7 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
-  } catch (_) {
+  } catch {
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
@@ -107,9 +116,7 @@ export async function POST(request: Request) {
     const chat = await getChatById({ id });
 
     if (!chat) {
-      const title = await generateTitleFromUserMessage({
-        message,
-      });
+      const title = await generateTitleFromUserMessage({ message });
 
       await saveChat({
         id,
@@ -117,10 +124,8 @@ export async function POST(request: Request) {
         title,
         visibility: selectedVisibilityType,
       });
-    } else {
-      if (chat.userId !== session.user.id) {
-        return new ChatSDKError('forbidden:chat').toResponse();
-      }
+    } else if (chat.userId !== session.user.id) {
+      return new ChatSDKError('forbidden:chat').toResponse();
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
@@ -163,26 +168,22 @@ export async function POST(request: Request) {
           experimental_activeTools:
             selectedChatModel === 'chat-model-reasoning'
               ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
+              : ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'],
+
           experimental_transform: smoothStream({ chunking: 'word' }),
+
           tools: {
             getWeather,
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
+            requestSuggestions: requestSuggestions({ session, dataStream }),
           },
+
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
           },
+
           onFinish: ({ usage }) => {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });
@@ -197,13 +198,15 @@ export async function POST(request: Request) {
           }),
         );
       },
+
       generateId: generateUUID,
+
       onFinish: async ({ messages }) => {
         await saveMessages({
-          messages: messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
+          messages: messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            parts: m.parts,
             createdAt: new Date(),
             attachments: [],
             chatId: id,
@@ -217,13 +220,12 @@ export async function POST(request: Request) {
               context: finalUsage,
             });
           } catch (err) {
-            console.warn('Unable to persist last usage for chat', id, err);
+            console.warn('Unable to persist usage', id, err);
           }
         }
       },
-      onError: () => {
-        return 'Oops, an error occurred!';
-      },
+
+      onError: () => 'Oops, an error occurred!',
     });
 
     const streamContext = getStreamContext();
@@ -234,15 +236,15 @@ export async function POST(request: Request) {
           stream.pipeThrough(new JsonToSseTransformStream()),
         ),
       );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
     }
+
+    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
 
-    console.error('Unhandled error in chat API:', error);
+    console.error('Unhandled error:', error);
     return new ChatSDKError('offline:chat').toResponse();
   }
 }
