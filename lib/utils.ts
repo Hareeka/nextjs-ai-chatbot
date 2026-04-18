@@ -14,7 +14,12 @@ import { formatISO } from 'date-fns';
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
+export function extractTextFromParts(parts: UIMessagePart<any, any>[]) {
+  return parts
+    .filter((p) => p.type === 'text')
+    .map((p) => p.text)
+    .join('');
+}
 export const fetcher = async (url: string) => {
   const response = await fetch(url);
 

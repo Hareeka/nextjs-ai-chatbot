@@ -5,8 +5,12 @@ export async function saveChatModelAsCookie() {}
 
 export async function updateChatVisibility() {}
 
-export async function generateTitleFromUserMessage() {
-  return "New Chat";
+export async function generateTitleFromUserMessage(message: string) {
+  const cleaned = message.trim();
+
+  return cleaned.length > 30
+    ? cleaned.slice(0, 30) + "..."
+    : cleaned || "New Chat";
 }
 export type LoginActionState = {
   status: 'idle' | 'success' | 'failed' | 'invalid_data';

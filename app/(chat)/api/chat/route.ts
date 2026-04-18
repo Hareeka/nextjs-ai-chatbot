@@ -7,7 +7,7 @@ import {
   stepCountIs,
   streamText,
 } from 'ai';
-
+import { extractTextFromParts } from '@/lib/utils';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
@@ -116,7 +116,8 @@ export async function POST(request: Request) {
     const chat = await getChatById({ id });
 
     if (!chat) {
-      const title = await generateTitleFromUserMessage(message);
+      const text = extractTextFromParts(message.parts);
+      const title = await generateTitleFromUserMessage(text);
 
       await saveChat({
         id,
