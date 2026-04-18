@@ -1,7 +1,7 @@
 'use server';
-export async function deleteTrailingMessages() {}
+export async function deleteTrailingMessages({ id }: { id: string }) {}
 
-export async function saveChatModelAsCookie() {}
+export async function saveChatModelAsCookie(id: string) {}
 
 export async function updateChatVisibility() {}
 
