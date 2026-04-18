@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useActionState } from 'react';
+import { useFormState } from 'react-dom';
 
 import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
@@ -20,7 +20,7 @@ export default function Page() {
   const [isSuccessful, setIsSuccessful] = useState(false);
 
   // ✅ Correct server action state hook
-  const [state, formAction] = useActionState<
+  const [state, formAction] = useFormState<
     RegisterActionState,
     FormData
   >(register, {
