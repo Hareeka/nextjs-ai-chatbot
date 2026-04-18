@@ -5,6 +5,7 @@ export function AuthForm({
   action,
   children,
   defaultEmail = '',
+  
 }: {
   action: any;
   children: React.ReactNode;

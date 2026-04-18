@@ -2,30 +2,32 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect} from 'react';
+import { useEffect, useState } from 'react';
+import { useActionState } from 'react';
 
 import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
-
-import { register, type RegisterActionState } from '../actions';
 import { toast } from '@/components/toast';
 import { useSession } from 'next-auth/react';
 
+import { register, type RegisterActionState } from '../actions';
+
 export default function Page() {
   const router = useRouter();
+  const { update: updateSession } = useSession();
 
   const [email, setEmail] = useState('');
   const [isSuccessful, setIsSuccessful] = useState(false);
 
-  const [state, formAction] = useState<RegisterActionState, FormData>(
-    register,
-    {
-      status: 'idle',
-    },
-  );
+  // ✅ Correct server action state hook
+  const [state, formAction] = useActionState<
+    RegisterActionState,
+    FormData
+  >(register, {
+    status: 'idle',
+  });
 
-  const { update: updateSession } = useSession();
-
+  // Handle side effects based on server action result
   useEffect(() => {
     if (state.status === 'user_exists') {
       toast({ type: 'error', description: 'Account already exists!' });
@@ -45,22 +47,28 @@ export default function Page() {
     }
   }, [state, router, updateSession]);
 
-  const handleSubmit = (formData: FormData) => {
-    setEmail(formData.get('email') as string);
-    formAction(formData);
-  };
-
   return (
     <div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">
       <div className="flex w-full max-w-md flex-col gap-12 overflow-hidden rounded-2xl">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="font-semibold text-xl dark:text-zinc-50">Sign Up</h3>
+          <h3 className="font-semibold text-xl dark:text-zinc-50">
+            Sign Up
+          </h3>
           <p className="text-gray-500 text-sm dark:text-zinc-400">
             Create an account with your email and password
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
-          <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
+
+        {/* ✅ Server action wired correctly */}
+        <AuthForm
+          action={formAction}
+          defaultEmail={email}
+          //onEmailChange={(value: string) => setEmail(value)}
+        >
+          <SubmitButton isSuccessful={isSuccessful}>
+            Sign Up
+          </SubmitButton>
+
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {'Already have an account? '}
             <Link
