@@ -40,7 +40,7 @@ import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 // https://authjs.dev/reference/adapter/drizzle
 
 // biome-ignore lint: Forbidden non-null assertion.
-const client = postgres(process.env.POSTGRES_URL!);
+const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client);
 
 export async function getUser(email: string): Promise<Array<User>> {
@@ -65,19 +65,22 @@ export async function createUser(email: string, password: string) {
 }
 
 export async function createGuestUser() {
-  const email = `guest-${Date.now()}`;
+  const email = `guest-${crypto.randomUUID()}`;
   const password = generateHashedPassword(generateUUID());
 
   try {
-    return await db.insert(user).values({ email, password }).returning({
-      id: user.id,
-      email: user.email,
-    });
+    const result = await db
+      .insert(user)
+      .values({ email, password })
+      .returning({
+        id: user.id,
+        email: user.email,
+      });
+
+    return result;
   } catch (error) {
-    throw new ChatSDKError(
-      'bad_request:database',
-      'Failed to create guest user',
-    );
+    console.error("🔥 DB ERROR (createGuestUser):", error); // IMPORTANT
+    throw error; // don’t hide it
   }
 }
 
@@ -457,7 +460,7 @@ export async function deleteMessagesByChatIdAfterTimestamp({
   }
 }
 
-export async function updateChatVisiblityById({
+export async function updateChatVisibilityById({
   chatId,
   visibility,
 }: {
