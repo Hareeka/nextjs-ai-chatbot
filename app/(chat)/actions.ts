@@ -3,7 +3,12 @@ export async function deleteTrailingMessages({ id }: { id: string }) {}
 
 export async function saveChatModelAsCookie(id: string) {}
 
-export async function updateChatVisibility() {}
+export async function updateChatVisibility(input: {
+  chatId: string;
+  visibility: string;
+}) {
+  const { chatId, visibility } = input;
+}
 
 export async function generateTitleFromUserMessage(message: string) {
   const cleaned = message.trim();
