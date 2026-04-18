@@ -1,5 +1,13 @@
 'use server';
+export async function deleteTrailingMessages() {}
 
+export async function saveChatModelAsCookie() {}
+
+export async function updateChatVisibility() {}
+
+export async function generateTitleFromUserMessage() {
+  return "New Chat";
+}
 export type LoginActionState = {
   status: 'idle' | 'success' | 'failed' | 'invalid_data';
 };
